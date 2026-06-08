@@ -1,4 +1,4 @@
-# CashCue 🍜💸
+# CashCue 
 
 > A smart campus food expense tracker built for college students — log canteen spending, visualize patterns, and actually stay on budget.
 
