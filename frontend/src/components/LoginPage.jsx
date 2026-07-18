@@ -35,25 +35,14 @@ export default function LoginPage({ onSignIn, error, loading }) {
 
         {/* Headline */}
         <div style={s.headline}>
-          Track every bite,<br />own your budget 💸
+          Track every bite,<br />own your budget 
         </div>
         <div style={s.subline}>
           Log canteen spending, spot patterns, stay on budget — all in one place.
         </div>
 
         {/* Features */}
-        <div style={s.features}>
-          {[
-            { icon: "📊", text: "Smart spending insights" },
-            { icon: "🏫", text: "All campus canteens" },
-            { icon: "🔥", text: "Daily streak tracking" },
-          ].map(f => (
-            <div key={f.text} style={s.featureRow}>
-              <span style={s.featureIcon}>{f.icon}</span>
-              <span style={s.featureText}>{f.text}</span>
-            </div>
-          ))}
-        </div>
+       
 
         {/* Error */}
         {error && <div style={s.error}>{error}</div>}

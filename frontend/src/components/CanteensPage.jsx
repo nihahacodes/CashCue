@@ -201,7 +201,7 @@ export default function CanteensPage({ expenses }) {
   return (
     <div style={s.page}>
       <div style={s.pageHeader}>
-        <div style={s.pageTitle}>Canteens 🏫</div>
+        <div style={s.pageTitle}>Canteens </div>
         <div style={s.pageSub}>Explore campus food spots</div>
       </div>
 
