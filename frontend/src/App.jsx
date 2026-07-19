@@ -7,13 +7,11 @@ import { useAuth }      from "./hooks/useAuth";
 import { dayKey, todayKey, calcStreak, getCategoryTotals } from "./utils";
 import { globalStyles, tokens } from "./styles";
 
-// Layout
 import AmbientBackground from "./components/AmbientBackground";
 import BottomNav         from "./components/BottomNav";
 import AddExpenseModal   from "./components/AddExpenseModal";
 import Toast             from "./components/Toast";
 
-// Pages
 import LoginPage    from "./components/LoginPage";
 import HomePage     from "./components/HomePage";
 import InsightsPage from "./components/InsightsPage";
@@ -22,12 +20,15 @@ import ProfilePage  from "./components/ProfilePage";
 
 export default function App() {
   const { user, loading: authLoading, error: authError, signInWithGoogle, signOutUser } = useAuth();
-  const { expenses, budget, addExpense, deleteExpense, updateBudget } = useExpenses();
+
+  // Pass `user` so the hook can attach the auth token to every API request
+  const { expenses, budget, loading: expLoading, error: expError, addExpense, deleteExpense, updateBudget } = useExpenses(user);
+
   const { toast, showToast } = useToast();
   const [activePage, setActivePage] = useState("home");
   const [showModal,  setShowModal]  = useState(false);
 
-  // ─── Shared derived values ─────────────────────────────────────────────────
+  // ─── Derived values ────────────────────────────────────────────────────────
   const now        = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   const monthSpent = expenses.filter(e => e.ts >= monthStart).reduce((s, e) => s + e.amount, 0);
@@ -39,14 +40,22 @@ export default function App() {
   const streak     = calcStreak(expenses);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
-  const handleAdd = useCallback((expense) => {
-    addExpense(expense);
-    showToast(`Logged ${expense.name} for ₹${expense.amount} 🎉`);
+  const handleAdd = useCallback(async (expense) => {
+    try {
+      await addExpense(expense);
+      showToast(`Logged ${expense.name} for ₹${expense.amount} 🎉`);
+    } catch {
+      showToast("Failed to save — check your connection");
+    }
   }, [addExpense, showToast]);
 
-  const handleDelete = useCallback((id) => {
-    deleteExpense(id);
-    showToast("Removed 🗑️");
+  const handleDelete = useCallback(async (id) => {
+    try {
+      await deleteExpense(id);
+      showToast("Removed 🗑️");
+    } catch {
+      showToast("Failed to delete");
+    }
   }, [deleteExpense, showToast]);
 
   const handleEditBudget = useCallback(() => {
@@ -67,27 +76,21 @@ export default function App() {
     showToast("Signed out 👋");
   }, [signOutUser, showToast]);
 
-  // ─── Auth loading screen ───────────────────────────────────────────────────
+  // ─── Auth loading ──────────────────────────────────────────────────────────
   if (authLoading) {
     return (
       <div style={styles.splash}>
         <style>{globalStyles}</style>
-        <div style={styles.splashLogo}></div>
         <div style={styles.splashText}>CashCue</div>
       </div>
     );
   }
 
-  // ─── Not signed in → show login ───────────────────────────────────────────
   if (!user) {
     return (
       <>
         <style>{globalStyles}</style>
-        <LoginPage
-          onSignIn={signInWithGoogle}
-          error={authError}
-          loading={authLoading}
-        />
+        <LoginPage onSignIn={signInWithGoogle} error={authError} loading={authLoading} />
         <Toast {...toast} />
       </>
     );
@@ -108,6 +111,8 @@ export default function App() {
             streak={streak}
             onDelete={handleDelete}
             onEditBudget={handleEditBudget}
+            loading={expLoading}
+            error={expError}
           />
         );
       case "stats":
@@ -136,6 +141,11 @@ export default function App() {
       <style>{globalStyles}</style>
       <AmbientBackground />
 
+      {/* Global error banner if backend is unreachable */}
+      {expError && (
+        <div style={styles.errorBanner}>{expError}</div>
+      )}
+
       <div style={styles.inner}>
         {renderPage()}
       </div>
@@ -149,10 +159,7 @@ export default function App() {
       <BottomNav active={activePage} onNav={setActivePage} />
 
       {showModal && (
-        <AddExpenseModal
-          onClose={() => setShowModal(false)}
-          onAdd={handleAdd}
-        />
+        <AddExpenseModal onClose={() => setShowModal(false)} onAdd={handleAdd} />
       )}
 
       <Toast {...toast} />
@@ -179,39 +186,45 @@ const styles = {
     position: "fixed",
     bottom: 80,
     right: 24,
-    width: 58,
-    height: 58,
+    width: 48,
+    height: 48,
     borderRadius: "50%",
-    background: "linear-gradient(135deg,#c084fc,#f472b6)",
+    background: tokens.accent,
     border: "none",
     cursor: "pointer",
-    fontSize: 28,
+    fontSize: 24,
     color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 0 30px rgba(192,132,252,.4)",
+    boxShadow: "0 4px 16px rgba(99,102,241,0.4)",
     zIndex: 100,
     fontFamily: "monospace",
-    transition: ".2s",
+    transition: ".15s",
   },
-  // Loading splash
   splash: {
     minHeight: "100vh",
-    background: "#0a0a0f",
+    background: tokens.bg,
     display: "flex",
-    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    fontFamily: "'Space Grotesk', sans-serif",
   },
-  splashLogo: { fontSize: 56, marginBottom: 12 },
   splashText: {
-    fontFamily: "'Syne', sans-serif",
-    fontSize: 28,
-    fontWeight: 800,
-    background: "linear-gradient(135deg,#c084fc,#f472b6)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
+    fontSize: 20,
+    fontWeight: 700,
+    color: tokens.text,
+    letterSpacing: "-0.02em",
+    fontFamily: tokens.fontSans,
+  },
+  errorBanner: {
+    background: tokens.redDim,
+    borderBottom: `1px solid rgba(239,68,68,0.2)`,
+    padding: "8px 16px",
+    fontSize: 12,
+    color: tokens.red,
+    textAlign: "center",
+    position: "sticky",
+    top: 0,
+    zIndex: 50,
   },
 };

@@ -1,88 +1,85 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiRequest } from "../api";
 
-const STORAGE_KEY_BUDGET = "cashcue_budget";
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const STORAGE_KEY_BUDGET = "nomnom_budget";
 
 function loadBudget() {
   return parseInt(localStorage.getItem(STORAGE_KEY_BUDGET) || "3000");
 }
 
-function mapServerToExpense(item) {
-  return {
-    id: item._id || item.id,
-    name: item.name || "",
-    amount: item.amount || 0,
-    category: item.category || "",
-    canteen: item.canteen || "",
-    ts: item.ts || (item.date ? new Date(item.date).getTime() : Date.now()),
-  };
-}
-
-export function useExpenses() {
+// user = Firebase user object (needed to get auth token for every request)
+export function useExpenses(user) {
   const [expenses, setExpenses] = useState([]);
-  const [budget, setBudget] = useState(loadBudget);
+  const [budget,   setBudget]   = useState(loadBudget);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState(null);
 
-  // load from server
+  // ─── Load transactions from backend whenever user signs in ──────────────────
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/transactions`);
-        if (!res.ok) throw new Error("Network");
-        const data = await res.json();
-        if (!cancelled) setExpenses(data.map(mapServerToExpense));
-      } catch (e) {
-        // no demo fallback — start empty if server unavailable
-        if (!cancelled) setExpenses([]);
-      }
-    })();
-    return () => { cancelled = true };
-  }, []);
+    if (!user) {
+      setExpenses([]); // clear data on sign-out
+      return;
+    }
 
+    setLoading(true);
+    setError(null);
+
+    apiRequest(user, "/transactions")
+      .then((data) => {
+        // Backend returns MongoDB docs with `_id`; normalise to `id` for the UI
+        setExpenses(data.map(normalise));
+      })
+      .catch((err) => {
+        console.error("Failed to load transactions:", err);
+        setError("Could not load transactions. Check your connection.");
+      })
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  // ─── Budget (still local — it's a personal preference, not per-device data) ─
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_BUDGET, budget);
   }, [budget]);
 
+  // ─── Add ────────────────────────────────────────────────────────────────────
   const addExpense = useCallback(async (expense) => {
-    // send to server
+    if (!user) return;
     try {
-      const body = {
-        name: expense.name,
-        amount: expense.amount,
-        category: expense.category,
-        canteen: expense.canteen,
-        ts: expense.ts || Date.now(),
-      };
-
-      const res = await fetch(`${API_BASE}/transactions`, {
+      const saved = await apiRequest(user, "/transactions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: expense,
       });
-
-      if (!res.ok) throw new Error("Failed to create");
-      const created = await res.json();
-      setExpenses(prev => [mapServerToExpense(created), ...prev]);
-    } catch (e) {
-      // optimistic local-only fallback
-      setExpenses(prev => [expense, ...prev]);
+      // Prepend to list so it appears at the top immediately
+      setExpenses((prev) => [normalise(saved), ...prev]);
+    } catch (err) {
+      console.error("Failed to add transaction:", err);
+      throw err; // let the caller show a toast
     }
-  }, []);
+  }, [user]);
 
+  // ─── Delete ─────────────────────────────────────────────────────────────────
   const deleteExpense = useCallback(async (id) => {
+    if (!user) return;
+    // Optimistic update: remove from UI immediately, restore if request fails
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
     try {
-      const res = await fetch(`${API_BASE}/transactions/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
-      setExpenses(prev => prev.filter(e => e.id !== id));
-    } catch (e) {
-      // local fallback
-      setExpenses(prev => prev.filter(e => e.id !== id));
+      await apiRequest(user, `/transactions/${id}`, { method: "DELETE" });
+    } catch (err) {
+      console.error("Failed to delete transaction:", err);
+      // Reload to restore correct state
+      const data = await apiRequest(user, "/transactions");
+      setExpenses(data.map(normalise));
     }
-  }, []);
+  }, [user]);
 
   const updateBudget = useCallback((value) => {
     setBudget(value);
   }, []);
 
-  return { expenses, budget, addExpense, deleteExpense, updateBudget };
+  return { expenses, budget, loading, error, addExpense, deleteExpense, updateBudget };
+}
+
+// MongoDB returns _id, the UI expects id — normalise here once
+function normalise(doc) {
+  return { ...doc, id: doc._id || doc.id };
 }
