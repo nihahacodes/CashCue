@@ -3,6 +3,7 @@ export const CATEGORIES = [
   { name: "Lunch",     emoji: "🌤️", color: "#60a5fa", bg: "rgba(96,165,250,.13)" },
   { name: "Snacks",    emoji: "🍿", color: "#f472b6", bg: "rgba(244,114,182,.13)" },
   { name: "Dinner",    emoji: "🌙", color: "#c084fc", bg: "rgba(192,132,252,.13)" },
+  {name: "Other",emoji:"🛍️",colour:"#99f4bd",bg: "rgba(96,165,250,.13)"},
 ];
 
 export const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.name, c]));
