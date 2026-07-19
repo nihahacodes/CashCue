@@ -1,32 +1,30 @@
-const express = require("express");
-const router = express.Router();
-
+const express     = require("express");
+const router      = express.Router();
 const Transaction = require("../models/Transaction");
-console.log('Loaded Transaction model type:', typeof Transaction, Transaction && Transaction.modelName);
+const verifyToken = require("../middleware/auth");
 
 
-// GET ALL TRANSACTIONS
 
-router.get("/", async (req, res) => {
+// ─── GET all transactions for this user ───────────────────────────────────────
+router.get("/", verifyToken, async (req, res) => {
   try {
-    const transactions = await Transaction.find().sort({ ts: -1 });
+    const transactions = await Transaction
+      .find({ userId: req.uid })
+      .sort({ ts: -1 });
     res.status(200).json(transactions);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
 });
 
 
-// ADD TRANSACTION
-
-router.post("/", async (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   try {
     const { name, amount, category, canteen, ts } = req.body;
 
-    console.log('POST /transactions - Transaction in-scope:', typeof Transaction, Transaction && Transaction.modelName);
-
     const transaction = new Transaction({
+      userId:   req.uid, // always from verified token, never from body
       name,
       amount,
       category,
@@ -36,22 +34,30 @@ router.post("/", async (req, res) => {
 
     const saved = await transaction.save();
     res.status(201).json(saved);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
 });
 
-// DELETE TRANSACTION
-router.delete("/:id", async (req, res) => {
+
+router.delete("/:id", verifyToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    const removed = await Transaction.findByIdAndDelete(id);
-    if (!removed) return res.status(404).json({ message: "Not found" });
+    // findOneAndDelete with both _id AND userId prevents users
+    // from deleting each other's transactions by guessing an ID.
+    const removed = await Transaction.findOneAndDelete({
+      _id:    req.params.id,
+      userId: req.uid,
+    });
+
+    if (!removed) {
+      return res.status(404).json({ message: "Not found or not yours" });
+    }
+
     res.status(200).json({ message: "Deleted" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
 });
 

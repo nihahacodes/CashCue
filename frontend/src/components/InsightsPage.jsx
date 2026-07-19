@@ -229,7 +229,7 @@ export default function InsightsPage({ expenses, budget }) {
                   <div style={s.topRank}>{["🥇","🥈","🥉","4️⃣","5️⃣"][i]}</div>
                   <div style={s.topInfo}>
                     <div style={s.topName}>{item.name}</div>
-                    <div style={s.topMeta}>{item.count}x ordered • {catInfo.emoji} {item.category}</div>
+                    <div style={s.topMeta}> {catInfo.emoji} {item.category}</div>
                   </div>
                   <div style={{ ...s.topAmt, color: catInfo.color }}>₹{item.total}</div>
                 </div>

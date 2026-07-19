@@ -2,6 +2,13 @@ const mongoose = require("mongoose");
 
 const transactionSchema = new mongoose.Schema(
   {
+    
+    userId: {
+      type: String,
+      required: true,
+      index: true, // makes queries by userId fast
+    },
+
     name: {
       type: String,
       default: "",
@@ -23,7 +30,7 @@ const transactionSchema = new mongoose.Schema(
       default: "",
     },
 
-    // timestamp in ms (frontend uses `ts`)
+    // Unix timestamp in ms (frontend uses `ts`)
     ts: {
       type: Number,
       default: Date.now,

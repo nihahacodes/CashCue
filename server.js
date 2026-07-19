@@ -1,53 +1,56 @@
 require("dotenv").config();
-console.log("MONGO_URI =", process.env.MONGO_URI);
 
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
+const express    = require("express");
+const mongoose   = require("mongoose");
+const cors       = require("cors");
+const admin      = require("firebase-admin");
 
-const transactionRoutes =
-  require("./routes/transactionroute");
+
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId:   process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    
+    privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+  }),
+});
+
+const transactionRoutes = require("./routes/transactionroute");
 
 const app = express();
 
 
-// Middleware
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:5173", // for local dev
+].filter(Boolean);
 
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+   
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
 
 
-// MongoDB Connection
-
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB Connected");
-  })
-  .catch((err) => {
-    console.log(err);
-  });
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error("MongoDB error:", err));
 
-
-// Routes
 
 app.use("/transactions", transactionRoutes);
 
-
-// Test Route
-
 app.get("/", (req, res) => {
-  res.send("Student Wallet API Running");
+  res.send("CashCue API running");
 });
 
-
-// Server
-
-const PORT =
-  process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(
-    `Server running on port ${PORT}`
-  );
-});
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
