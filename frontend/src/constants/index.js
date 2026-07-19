@@ -12,6 +12,8 @@ export const CANTEENS = [
   { name: "Southern",  sub: " Popular" },
   { name: "Vela Cafe",   sub: "Open Now" },
   { name: "The Chat Khazaana",  sub: "Open Now" },
+  {name:"Vinayaka Canteen",sub:"Open Now"},
+  {name:"Other"},
   { name: "Cream And Creamy",    sub: "Quick bites" },
   { name: "Green Cafe", sub: "Snack Now !" },
 ];
